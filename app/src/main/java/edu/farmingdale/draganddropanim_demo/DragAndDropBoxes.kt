@@ -153,7 +153,7 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                 .weight(0.8f)
                 .background(Color.Red)
         ) {
-            //Todo 3?: The circle has been changed to a rectangle
+            //Todo 3?: The circle has been changed to a rectangle/
             Box(
                 modifier = Modifier
                     .padding(10.dp)
