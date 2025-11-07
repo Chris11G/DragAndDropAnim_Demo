@@ -2,6 +2,7 @@
 
 package edu.farmingdale.draganddropanim_demo
 
+import kotlin.math.roundToInt
 import android.content.ClipData
 import android.content.ClipDescription
 import androidx.compose.animation.AnimatedVisibility
@@ -61,6 +62,10 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
     var targetOffset by remember { mutableStateOf(IntOffset(130, 100)) }
     var containerSizePx by remember { mutableStateOf(IntSize.Zero) }
     val density = LocalDensity.current
+    val rectW = 120  // dp
+    val rectH = 60   // dp
+    val moveStepDp = 60      // dp per drop
+    var rotationDir by remember { mutableIntStateOf(1) } // 1 = clockwise, -1 = counter
 
     Column(modifier = Modifier.fillMaxSize()) {
 
@@ -87,10 +92,38 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                             target = remember {
                                 object : DragAndDropTarget {
                                     override fun onDrop(event: DragAndDropEvent): Boolean {
-                                        isPlaying = !isPlaying
+                                        // Map boxes (left→right): 0=Up, 1=Right, 2=Down, 3=Left
+                                        val (dx, dy) = when (index) {
+                                            0 -> 0 to -moveStepDp
+                                            1 -> moveStepDp to 0
+                                            2 -> 0 to moveStepDp
+                                            else -> -moveStepDp to 0
+                                        }
+
+                                        // Compute container size in dp (from px), then max allowed offset in dp
+                                        val cwDp = containerSizePx.width / density.density
+                                        val chDp = containerSizePx.height / density.density
+                                        val maxX = (cwDp - rectW).coerceAtLeast(0f).roundToInt()
+                                        val maxY = (chDp - rectH).coerceAtLeast(0f).roundToInt()
+
+                                        // Apply step and clamp to bounds
+                                        val nx = (targetOffset.x + dx).coerceIn(0, maxX)
+                                        val ny = (targetOffset.y + dy).coerceIn(0, maxY)
+                                        targetOffset = IntOffset(nx, ny)
+
+                                        // Animation behavior based on direction: Up = CCW, Down = CW (others keep last)
+                                        rotationDir = when (index) {
+                                            0 -> -1  // Up
+                                            2 ->  1  // Down
+                                            else -> rotationDir
+                                        }
+                                        isPlaying = true  // kick/keep rotation running
+
+                                        // Keep your existing highlight behavior
                                         dragBoxIndex = index
                                         return true
                                     }
+
                                 }
                             }
                         ),
@@ -131,7 +164,7 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
 
         // ── Rotation animation ────────────────────────────────────────────────────
         val rtatView by animateFloatAsState(
-            targetValue = if (isPlaying) 360f else 0f,
+            targetValue = if (isPlaying) 360f * rotationDir else 0f,
             animationSpec = repeatable(
                 iterations = if (isPlaying) 10 else 1,
                 animation = tween(durationMillis = 3000, easing = LinearEasing),
@@ -139,6 +172,7 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
             ),
             label = "rect-rotation"
         )
+
 
         // ── Main red area (captures its size) ─────────────────────────────────────
         Box(
@@ -148,8 +182,6 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                 .background(Color.Red)
                 .onSizeChanged { size -> containerSizePx = size } // capture size in px
         ) {
-            val rectW = 120  // dp
-            val rectH = 60   // dp
 
             // Convert px -> dp as floats (no .value usage)
             val containerWidthDp  = containerSizePx.width  / density.density
