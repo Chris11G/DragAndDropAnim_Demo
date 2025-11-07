@@ -11,8 +11,11 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.repeatable
 import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -31,7 +34,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -101,12 +106,9 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                         enter = scaleIn() + fadeIn(),
                         exit = scaleOut() + fadeOut()
                     ) {
-                        Text(
-                            text = "Right",
-                            fontSize = 40.sp,
-                            color = Color.Red,
-                            fontWeight = FontWeight.Bold,
-
+                        Image(
+                            painter = painterResource(id = R.drawable.hand2),
+                            contentDescription = "Right hand image",
                             modifier = Modifier
                                 .fillMaxSize()
                                 .dragAndDropSource {
@@ -114,16 +116,14 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                                         onLongPress = { offset ->
                                             startTransfer(
                                                 transferData = DragAndDropTransferData(
-                                                    clipData = ClipData.newPlainText(
-                                                        "text",
-                                                        ""
-                                                    )
+                                                    clipData = ClipData.newPlainText("text", "")
                                                 )
                                             )
                                         }
                                     )
                                 }
                         )
+
                     }
                 }
             }
