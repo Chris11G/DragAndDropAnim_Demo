@@ -51,25 +51,43 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
+import androidx.compose.ui.unit.sp
 
 @Composable
 fun DragAndDropBoxes(modifier: Modifier = Modifier) {
+    // Controls whether the rectangle is currently rotating
     var isPlaying by remember { mutableStateOf(true) }
-    var targetOffset by remember { mutableStateOf(IntOffset(130, 100)) }
-    var containerSizePx by remember { mutableStateOf(IntSize.Zero) }
-    val density = LocalDensity.current
-    val rectW = 120  // dp
-    val rectH = 60   // dp
-    val moveStepDp = 60      // dp per drop
-    var rotationDir by remember { mutableIntStateOf(1) } // 1 = clockwise, -1 = counter
 
+    // Stores the current position (offset) of the rectangle
+    var targetOffset by remember { mutableStateOf(IntOffset(130, 100)) }
+
+    // Will hold the red container’s pixel size (for boundaries)
+    var containerSizePx by remember { mutableStateOf(IntSize.Zero) }
+
+    // Density used to convert between pixels and dp units
+    val density = LocalDensity.current
+
+    // Rectangle dimensions (in dp)
+    val rectW = 120
+    val rectH = 60
+
+    // How far the rectangle moves per drop
+    val moveStepDp = 60
+
+    // Rotation direction: 1 = clockwise, -1 = counterclockwise
+    var rotationDir by remember { mutableIntStateOf(1) }
+
+    // Layout structure: Column containing controls (Row) + red container
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // ── Top drag targets ───────────────────────────────────────────────────────
+        // ───────────────────────────────────────────────
+        // Top section: 4 drag-and-drop control boxes
+        // Each box moves the rectangle in one direction.
+        // ───────────────────────────────────────────────
         Row(
             modifier = modifier
                 .fillMaxWidth()
@@ -78,6 +96,7 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
             val boxCount = 4
             var dragBoxIndex by remember { mutableIntStateOf(0) }
 
+            // Create 4 equally spaced boxes: Up, Right, Down, Left
             repeat(boxCount) { index ->
                 Box(
                     modifier = Modifier
@@ -86,10 +105,12 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                         .padding(10.dp)
                         .border(1.dp, Color.Black)
                         .dragAndDropTarget(
+                            // Only start DnD if it’s a text MIME type
                             shouldStartDragAndDrop = { event ->
                                 event.mimeTypes().contains(ClipDescription.MIMETYPE_TEXT_PLAIN)
                             },
                             target = remember {
+                                // Defines behavior when an item is dropped on this box
                                 object : DragAndDropTarget {
                                     override fun onDrop(event: DragAndDropEvent): Boolean {
                                         // Map boxes (left→right): 0=Up, 1=Right, 2=Down, 3=Left
@@ -100,35 +121,54 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                                             else -> -moveStepDp to 0
                                         }
 
-                                        // Compute container size in dp (from px), then max allowed offset in dp
+                                        // Convert container px → dp for movement clamping
                                         val cwDp = containerSizePx.width / density.density
                                         val chDp = containerSizePx.height / density.density
+
+                                        // Clamp so rectangle stays inside red box
                                         val maxX = (cwDp - rectW).coerceAtLeast(0f).roundToInt()
                                         val maxY = (chDp - rectH).coerceAtLeast(0f).roundToInt()
 
-                                        // Apply step and clamp to bounds
+                                        // Apply movement and clamp values
                                         val nx = (targetOffset.x + dx).coerceIn(0, maxX)
                                         val ny = (targetOffset.y + dy).coerceIn(0, maxY)
                                         targetOffset = IntOffset(nx, ny)
 
-                                        // Animation behavior based on direction: Up = CCW, Down = CW (others keep last)
+                                        // Choose spin direction based on which box was hit
                                         rotationDir = when (index) {
-                                            0 -> -1  // Up
-                                            2 ->  1  // Down
+                                            0 -> -1 // Up = counterclockwise
+                                            2 ->  1 // Down = clockwise
                                             else -> rotationDir
                                         }
-                                        isPlaying = true  // kick/keep rotation running
 
-                                        // Keep your existing highlight behavior
+                                        // Start rotation after movement
+                                        isPlaying = true
+
+                                        // Highlight the active box
                                         dragBoxIndex = index
                                         return true
                                     }
-
                                 }
                             }
                         ),
                     contentAlignment = Alignment.Center
                 ) {
+                    // Displays direction arrow inside each control box
+                    val label = when (index) {
+                        0 -> "↑"
+                        1 -> "→"
+                        2 -> "↓"
+                        else -> "←"
+                    }
+
+                    Text(
+                        text = label,
+                        fontSize = 40.sp,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // The draggable “hand” image appears on the active box
                     this@Row.AnimatedVisibility(
                         visible = index == dragBoxIndex,
                         enter = scaleIn() + fadeIn(),
@@ -136,10 +176,11 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                     ) {
                         Image(
                             painter = painterResource(id = R.drawable.hand2),
-                            contentDescription = "Right hand image",
+                            contentDescription = "Hand image",
                             modifier = Modifier
                                 .fillMaxSize()
                                 .dragAndDropSource {
+                                    // When user long-presses, begin drag operation
                                     detectTapGestures(
                                         onLongPress = {
                                             startTransfer(
@@ -156,13 +197,18 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
             }
         }
 
-        // ── Position animation (offset) ───────────────────────────────────────────
+        // ───────────────────────────────────────────────
+        // Smoothly animate the rectangle’s position offset
+        // ───────────────────────────────────────────────
         val pOffset by animateIntOffsetAsState(
             targetValue = targetOffset,
             animationSpec = tween(3000, easing = LinearEasing)
         )
 
-        // ── Rotation animation ────────────────────────────────────────────────────
+        // ───────────────────────────────────────────────
+        // Animate rectangle rotation (360° loop)
+        // Direction depends on rotationDir
+        // ───────────────────────────────────────────────
         val rtatView by animateFloatAsState(
             targetValue = if (isPlaying) 360f * rotationDir else 0f,
             animationSpec = repeatable(
@@ -173,28 +219,28 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
             label = "rect-rotation"
         )
 
-
-        // ── Main red area (captures its size) ─────────────────────────────────────
+        // ───────────────────────────────────────────────
+        // Bottom red container — holds the blue rectangle
+        // ───────────────────────────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(0.8f)
                 .background(Color.Red)
-                .onSizeChanged { size -> containerSizePx = size } // capture size in px
+                // Captures red container’s size in pixels
+                .onSizeChanged { size -> containerSizePx = size }
         ) {
+            // Compute the center of the red container in dp units
+            val cwDp = containerSizePx.width / density.density
+            val chDp = containerSizePx.height / density.density
+            val centerX = ((cwDp - rectW) / 2f).roundToInt()
+            val centerY = ((chDp - rectH) / 2f).roundToInt()
 
-            // Convert px -> dp as floats (no .value usage)
-            val containerWidthDp  = containerSizePx.width  / density.density
-            val containerHeightDp = containerSizePx.height / density.density
-
-            val centerX = ((containerWidthDp  - rectW) / 2f).roundToInt()
-            val centerY = ((containerHeightDp - rectH) / 2f).roundToInt()
-
-            // Reset button (correct scope: inside a Box, so full Alignment is valid)
+            // Button to reset the rectangle’s position to center
             Button(
                 onClick = {
-                    isPlaying = false
-                    targetOffset = IntOffset(centerX, centerY)
+                    isPlaying = false // stop rotation
+                    targetOffset = IntOffset(centerX, centerY) // move to center
                 },
                 modifier = Modifier
                     .padding(8.dp)
@@ -203,7 +249,7 @@ fun DragAndDropBoxes(modifier: Modifier = Modifier) {
                 Text("Reset to Center")
             }
 
-            // The animated rectangle
+            // The animated blue rectangle that moves and rotates
             Box(
                 modifier = Modifier
                     .padding(10.dp)
